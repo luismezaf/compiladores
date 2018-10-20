@@ -1,13 +1,14 @@
 /*
- *	Analizador Léxico	
+ *	Analizador Léxico
  *	Curso: Compiladores y Lenguajes de Bajo de Nivel
  *	Práctica de Programación Nro. 1
- *	
+ *
  *	Descripcion:
- *	Implementa un analizador léxico que reconoce números, identificadores, 
+ *	Implementa un analizador léxico que reconoce números, identificadores,
  * 	palabras reservadas, operadores y signos de puntuación para un lenguaje
  * 	con sintaxis tipo Pascal.
- *	
+ *
+ *	Alumno: Luis Meza
  */
 
 /*********** Inclusión de cabecera **************/
@@ -38,7 +39,7 @@ int numLinea=1;			// Numero de Linea
 
 void error(const char* mensaje)
 {
-	printf("Lin %d: Error Lexico. %s.\n",numLinea,mensaje);	
+	printf("Lin %d: Error Lexico. %s.\n",numLinea,mensaje);
 }
 
 void sigLex()
@@ -52,51 +53,102 @@ void sigLex()
 
 	while((c=fgetc(archivo))!=EOF)
 	{
-		
-		if (c==' ' || c=='\t')
+        //printf("%c\n", c);
+		if (c==' ' || c=='\t'){
+            if(c==' ') printf(" ");
+            else if (c=='\t') printf("\t");
 			continue;	//eliminar espacios en blanco
+        }
 		else if(c=='\n')
 		{
 			//incrementar el numero de linea
 			numLinea++;
+			printf("\n");
 			continue;
 		}
 		else if (isalpha(c))
 		{
-			//es un identificador (o palabra reservada)
+			//PR_TRUE || PR_FALSE || PR_NULL
 			i=0;
+			//Recoge y guarda la cadena en id[i]
 			do{
 				id[i]=c;
 				i++;
 				c=fgetc(archivo);
 				if (i>=TAMLEX)
 					error("Longitud de Identificador excede tamaño de buffer");
-			}while(isalpha(c) || isdigit(c));
+			}while(isalpha(c));
+			// Agrega fin de linea
 			id[i]='\0';
+			// Si no es el final de archivo, retrocede un digito en el archivo
 			if (c!=EOF)
 				ungetc(c,archivo);
-			else
+			else // Si es fin de linea
 				c=0;
-			t.pe=buscar(id);
-			t.compLex=t.pe->compLex;
-			if (t.pe->compLex==-1)
-			{
-				strcpy(e.lexema,id);
-				e.compLex=ID;
-				insertar(e);
-				t.pe=buscar(id);
-				t.compLex=ID;
-			}
+
+            if(strcmp(id, "false") || strcmp(id, "FALSE"))
+            {
+                strcpy(e.lexema,id);
+                e.compLex=PR_FALSE;
+                insertar(e);
+                t.pe=buscar(id);
+                t.compLex=PR_FALSE;
+            }
+            else if(strcmp(id, "true") || strcmp(id, "TRUE"))
+            {
+                strcpy(e.lexema,id);
+                e.compLex=PR_TRUE;
+                insertar(e);
+                t.pe=buscar(id);
+                t.compLex=PR_TRUE;
+            }
+            else if(strcmp(id, "null") || strcmp(id, "NULL"))
+            {
+                strcpy(e.lexema,id);
+                e.compLex=PR_NULL;
+                insertar(e);
+                t.pe=buscar(id);
+                t.compLex=PR_NULL;
+            }
+
+			break;
+		}
+		else if (c == '\"')
+		{
+			//LITERAL_CADENA
+			i=0;
+			//Recoge y guarda la cadena en id[i]
+			do{
+				id[i]=c;
+				i++;
+				c=fgetc(archivo);
+				if (i>=TAMLEX)
+					error("Longitud de Identificador excede tamaño de buffer");
+			}while(isalpha(c) || isdigit(c) || c == '\"' || c == ' ');
+			// Agrega fin de linea
+			id[i]='\0';
+			// Si no es el final de archivo, retrocede un digito en el archivo
+			if (c!=EOF)
+				ungetc(c,archivo);
+			else // Si es fin de linea
+				c=0;
+
+			strcpy(e.lexema,id);
+            e.compLex=LITERAL_CADENA;
+            insertar(e);
+            t.pe=buscar(id);
+            t.compLex=LITERAL_CADENA;
+
 			break;
 		}
 		else if (isdigit(c))
 		{
-				//es un numero
+				//es un LITERAL_NUM
 				i=0;
 				estado=0;
 				acepto=0;
 				id[i]=c;
-				
+
 				while(!acepto)
 				{
 					switch(estado){
@@ -119,19 +171,13 @@ void sigLex()
 							estado=6;
 						}
 						break;
-					
+
 					case 1://un punto, debe seguir un digito (caso especial de array, puede venir otro punto)
-						c=fgetc(archivo);						
+						c=fgetc(archivo);
 						if (isdigit(c))
 						{
 							id[++i]=c;
 							estado=2;
-						}
-						else if(c=='.')
-						{
-							i--;
-							fseek(archivo,-1,SEEK_CUR);
-							estado=6;
 						}
 						else{
 							sprintf(msg,"No se esperaba '%c'",c);
@@ -199,15 +245,11 @@ void sigLex()
 							c=0;
 						id[++i]='\0';
 						acepto=1;
-						t.pe=buscar(id);
-						if (t.pe->compLex==-1)
-						{
-							strcpy(e.lexema,id);
-							e.compLex=NUM;
-							insertar(e);
-							t.pe=buscar(id);
-						}
-						t.compLex=NUM;
+						strcpy(e.lexema,id);
+                        e.compLex=LITERAL_NUM;
+                        insertar(e);
+                        t.pe=buscar(id);
+						t.compLex=LITERAL_NUM;
 						break;
 					case -1:
 						if (c==EOF)
@@ -219,222 +261,53 @@ void sigLex()
 				}
 			break;
 		}
-		else if (c=='<') 
-		{
-			//es un operador relacional, averiguar cual
-			c=fgetc(archivo);
-			if (c=='>'){
-				t.compLex=OPREL;
-				t.pe=buscar("<>");
-			}
-			else if (c=='='){
-				t.compLex=OPREL;
-				t.pe=buscar("<=");
-			}
-			else{
-				ungetc(c,archivo);
-				t.compLex=OPREL;
-				t.pe=buscar("<");
-			}
-			break;
-		}
-		else if (c=='>')
-		{
-			//es un operador relacional, averiguar cual
-				c=fgetc(archivo);
-			if (c=='='){
-				t.compLex=OPREL;
-				t.pe=buscar(">=");
-			}
-			else{
-				ungetc(c,archivo);
-				t.compLex=OPREL;
-				t.pe=buscar(">");
-			}
-			break;
-		}
-		else if (c==':')
-		{
-			//puede ser un : o un operador de asignacion
-			c=fgetc(archivo);
-			if (c=='='){
-				t.compLex=OPASIGNA;
-				t.pe=buscar(":=");
-			}
-			else{
-				ungetc(c,archivo);
-				t.compLex=':';
-				t.pe=buscar(":");
-			}
-			break;
-		}
-		else if (c=='+')
-		{
-			t.compLex=OPSUMA;
-			t.pe=buscar("+");
-			break;
-		}
-		else if (c=='-')
-		{
-			t.compLex=OPSUMA;
-			t.pe=buscar("-");
-			break;
-		}
-		else if (c=='*')
-		{
-			t.compLex=OPMULT;
-			t.pe=buscar("*");
-			break;
-		}
-		else if (c=='/')
-		{
-			t.compLex=OPMULT;
-			t.pe=buscar("/");
-			break;
-		}
-		else if (c=='=')
-		{
-			t.compLex=OPREL;
-			t.pe=buscar("=");
-			break;
-		}
-		else if (c==',')
-		{
-			t.compLex=',';
-			t.pe=buscar(",");
-			break;
-		}
-		else if (c==';')
-		{
-			t.compLex=';';
-			t.pe=buscar(";");
-			break;
-		}
-		else if (c=='.')
-		{
-			t.compLex='.';
-			t.pe=buscar(".");
-			break;
-		}
-		else if (c=='(')
-		{
-			if ((c=fgetc(archivo))=='*')
-			{//es un comentario
-				while(c!=EOF)
-				{
-					c=fgetc(archivo);
-					if (c=='*')
-					{
-						if ((c=fgetc(archivo))==')')
-						{
-							break;
-						}
-					}
-					else if(c=='\n')
-					{
-						//incrementar el numero de linea
-						numLinea++;
-					}
-				}
-				if (c==EOF)
-					error("Se llego al fin de archivo sin finalizar un comentario");
-				continue;
-			}
-			else
-			{
-				ungetc(c,archivo);
-				t.compLex='(';
-				t.pe=buscar("(");
-			}
-			break;
-		}
-		else if (c==')')
-		{
-			t.compLex=')';
-			t.pe=buscar(")");
-			break;
-		}
 		else if (c=='[')
 		{
-			t.compLex='[';
-			t.pe=buscar("[");
+			// L_CORCHETE
+			//c=fgetc(archivo);
+			t.compLex=L_CORCHETE;
+            t.pe=buscar("[");
 			break;
 		}
 		else if (c==']')
 		{
-			t.compLex=']';
-			t.pe=buscar("]");
-			break;
-		}
-		else if (c=='\'')
-		{//un caracter o una cadena de caracteres
-			i=0;
-			id[i]=c;
-			i++;
-			do{
-				c=fgetc(archivo);
-				if (c=='\'')
-				{
-					c=fgetc(archivo);
-					if (c=='\'')
-					{
-						id[i]=c;
-						i++;
-						id[i]=c;
-						i++;
-					}
-					else
-					{
-						id[i]='\'';
-						i++;
-						break;
-					}
-				}
-				else if(c==EOF)
-				{
-					error("Se llego al fin de archivo sin finalizar un literal");
-				}
-				else{
-					id[i]=c;
-					i++;
-				}
-			}while(isascii(c));
-			id[i]='\0';
-			if (c!=EOF)
-				ungetc(c,archivo);
-			else
-				c=0;
-			t.pe=buscar(id);
-			t.compLex=t.pe->compLex;
-			if (t.pe->compLex==-1)
-			{
-				strcpy(e.lexema,id);
-				if (strlen(id)==3 || strcmp(id,"''''")==0)
-					e.compLex=CAR;
-				else
-					e.compLex=LITERAL;
-				insertar(e);
-				t.pe=buscar(id);
-				t.compLex=e.compLex;
-			}
+			// R_CORCHETE
+			//c=fgetc(archivo);
+			t.compLex=R_CORCHETE;
+            t.pe=buscar("]");
 			break;
 		}
 		else if (c=='{')
 		{
-			//elimina el comentario
-			while(c!=EOF)
-			{
-				c=fgetc(archivo);
-				if (c=='}')
-					break;
-				else if(c=='\n')
-				{
-					//incrementar el numero de linea
-					numLinea++;
-				}
-			}
-			if (c==EOF)
-				error("Se llego al fin de archivo sin finalizar un comentario");
+			// L_LLAVE
+			//c=fgetc(archivo);
+			t.compLex=L_LLAVE;
+            t.pe=buscar("{");
+			break;
+		}
+		else if (c=='}')
+		{
+			// R_LLAVE
+			//c=fgetc(archivo);
+			t.compLex=R_LLAVE;
+            t.pe=buscar("}");
+			break;
+		}
+		else if (c==',')
+		{
+			// COMA
+			//c=fgetc(archivo);
+			t.compLex=COMA;
+            t.pe=buscar(",");
+			break;
+		}
+		else if (c==':')
+		{
+			// DOS_PUTNOS
+			//c=fgetc(archivo);
+			t.compLex=DOS_PUTNOS;
+            t.pe=buscar(":");
+			break;
 		}
 		else if (c!=EOF)
 		{
@@ -449,7 +322,7 @@ void sigLex()
 		sprintf(e.lexema,"EOF");
 		t.pe=&e;
 	}
-	
+
 }
 
 int main(int argc,char* args[])
@@ -458,7 +331,7 @@ int main(int argc,char* args[])
 
 	initTabla();
 	initTablaSimbolos();
-	
+
 	if(argc > 1)
 	{
 		if (!(archivo=fopen(args[1],"rt")))
@@ -468,7 +341,8 @@ int main(int argc,char* args[])
 		}
 		while (t.compLex!=EOF){
 			sigLex();
-			printf("Lin %d: %s -> %d\n",numLinea,t.pe->lexema,t.compLex);
+			printf("%s ", numToCompLex(t.compLex));
+			//printf("Lin %d: %s -> %d\n",numLinea,t.pe->lexema,t.compLex);
 		}
 		fclose(archivo);
 	}else{
@@ -477,4 +351,33 @@ int main(int argc,char* args[])
 	}
 
 	return 0;
+}
+
+char* numToCompLex(int num){
+    switch(num)
+    {
+        case 256:
+         return "L_CORCHETE";
+        case 257:
+         return "R_CORCHETE";
+        case 258:
+         return "L_LLAVE";
+        case 259:
+         return "R_LLAVE";
+        case 260:
+         return "COMA";
+        case 261:
+         return "DOS_PUTNOS";
+        case 262:
+         return "STRING";
+        case 263:
+         return "NUMBER";
+        case 264:
+         return "PR_TRUE";
+        case 265:
+         return "PR_FALSE";
+        case 266:
+         return "PR_NULL";
+    }
+    return NULL;
 }

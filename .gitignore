@@ -1,1 +1,7 @@
 anlex
+bin
+obj
+jsonLex.cbp
+jsonLex.layout
+jsonLex.depend
+fuente.txt
