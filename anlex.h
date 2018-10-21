@@ -1,8 +1,5 @@
 /*********** Librerias utilizadas **************/
-#include<stdio.h>
-#include<string.h>
-#include<stdlib.h>
-#include<ctype.h>
+#include "heads.h"
 
 /************* Definiciones ********************/
 
@@ -13,11 +10,12 @@
 #define R_LLAVE 		259
 #define COMA    		260
 #define DOS_PUTNOS		261
-#define LITERAL_CADENA	262
+#define LITERAL_CADENA		262
 #define LITERAL_NUM		263
 #define PR_TRUE 		264
 #define PR_FALSE		265
 #define PR_NULL			266
+#define UNKNOW			267
 // Fin Codigos
 #define TAMBUFF 	5
 #define TAMLEX 		50
@@ -29,15 +27,15 @@ typedef struct entrada{
 	//definir los campos de 1 entrada de la tabla de simbolos
 	int compLex;
 	char lexema[TAMLEX];
-	struct entrada *tipoDato; // null puede representar variable no declarada
-	// aqui irian mas atributos para funciones y procedimientos...
-
 } entrada;
 
 typedef struct {
 	int compLex;
+	int line;
+	int column;
 	entrada *pe;
 } token;
+
 
 /************* Prototipos ********************/
 void insertar(entrada e);
@@ -46,3 +44,7 @@ void initTabla();
 void initTablaSimbolos();
 void sigLex();
 char* numToCompLex(int num);
+void printsomething();
+int initanlex(FILE *arch);
+int chlistCompare(char chlist[], const char string[]);
+

@@ -12,8 +12,7 @@
  */
 
 /*********** Inclusión de cabecera **************/
-#include "anlex.h"
-
+#include "tokensQueue.h"
 
 /************* Variables globales **************/
 
@@ -31,6 +30,9 @@ char id[TAMLEX];		// Utilizado por el analizador lexico
 int delantero=-1;		// Utilizado por el analizador lexico
 int fin=0;				// Utilizado por el analizador lexico
 int numLinea=1;			// Numero de Linea
+int numColumna = 0;     // Numero de Columna
+int lexerror = 0; // Hay o no error lexico
+listatokens *listt; // Lista de tokens
 
 /**************** Funciones **********************/
 
@@ -39,7 +41,8 @@ int numLinea=1;			// Numero de Linea
 
 void error(const char* mensaje)
 {
-	printf("Lin %d: Error Lexico. %s.\n",numLinea,mensaje);
+	lexerror = 1;
+	printf("Lin %d, Col %d: Error Lexico. %s.\n",numLinea,numColumna,mensaje);
 }
 
 void sigLex()
@@ -54,16 +57,20 @@ void sigLex()
 	while((c=fgetc(archivo))!=EOF)
 	{
         //printf("%c\n", c);
+        numColumna++;
+	t.column = numColumna;
+	t.line = numLinea;
 		if (c==' ' || c=='\t'){
-            if(c==' ') printf(" ");
-            else if (c=='\t') printf("\t");
+            //if(c==' ') printf(" ");
+            //else if (c=='\t') printf("\t");
 			continue;	//eliminar espacios en blanco
         }
 		else if(c=='\n')
 		{
 			//incrementar el numero de linea
 			numLinea++;
-			printf("\n");
+			numColumna = 0;
+			//printf("\n");
 			continue;
 		}
 		else if (isalpha(c))
@@ -86,7 +93,7 @@ void sigLex()
 			else // Si es fin de linea
 				c=0;
 
-            if(strcmp(id, "false") || strcmp(id, "FALSE"))
+            if(chlistCompare(id, "false") || chlistCompare(id, "FALSE"))
             {
                 strcpy(e.lexema,id);
                 e.compLex=PR_FALSE;
@@ -94,7 +101,7 @@ void sigLex()
                 t.pe=buscar(id);
                 t.compLex=PR_FALSE;
             }
-            else if(strcmp(id, "true") || strcmp(id, "TRUE"))
+            else if(chlistCompare(id, "true") || chlistCompare(id, "TRUE"))
             {
                 strcpy(e.lexema,id);
                 e.compLex=PR_TRUE;
@@ -102,7 +109,7 @@ void sigLex()
                 t.pe=buscar(id);
                 t.compLex=PR_TRUE;
             }
-            else if(strcmp(id, "null") || strcmp(id, "NULL"))
+            else if(chlistCompare(id, "null") || chlistCompare(id, "NULL"))
             {
                 strcpy(e.lexema,id);
                 e.compLex=PR_NULL;
@@ -110,6 +117,16 @@ void sigLex()
                 t.pe=buscar(id);
                 t.compLex=PR_NULL;
             }
+	    else{
+		sprintf(msg,"%c no esperado",c);
+		token *tok = malloc(sizeof(token));
+		tok->compLex = UNKNOW;
+		tok->column = numColumna;
+		tok->line = numLinea;
+		addTokenToQueue(listt, *tok);
+		error(msg);
+		//c=fgetc(archivo);
+	    }
 
 			break;
 		}
@@ -266,7 +283,7 @@ void sigLex()
 			// L_CORCHETE
 			//c=fgetc(archivo);
 			t.compLex=L_CORCHETE;
-            t.pe=buscar("[");
+   	                t.pe=buscar("[");
 			break;
 		}
 		else if (c==']')
@@ -274,7 +291,7 @@ void sigLex()
 			// R_CORCHETE
 			//c=fgetc(archivo);
 			t.compLex=R_CORCHETE;
-            t.pe=buscar("]");
+            	        t.pe=buscar("]");
 			break;
 		}
 		else if (c=='{')
@@ -282,7 +299,7 @@ void sigLex()
 			// L_LLAVE
 			//c=fgetc(archivo);
 			t.compLex=L_LLAVE;
-            t.pe=buscar("{");
+            		t.pe=buscar("{");
 			break;
 		}
 		else if (c=='}')
@@ -290,7 +307,7 @@ void sigLex()
 			// R_LLAVE
 			//c=fgetc(archivo);
 			t.compLex=R_LLAVE;
-            t.pe=buscar("}");
+            		t.pe=buscar("}");
 			break;
 		}
 		else if (c==',')
@@ -298,7 +315,7 @@ void sigLex()
 			// COMA
 			//c=fgetc(archivo);
 			t.compLex=COMA;
-            t.pe=buscar(",");
+            		t.pe=buscar(",");
 			break;
 		}
 		else if (c==':')
@@ -306,12 +323,17 @@ void sigLex()
 			// DOS_PUTNOS
 			//c=fgetc(archivo);
 			t.compLex=DOS_PUTNOS;
-            t.pe=buscar(":");
+            		t.pe=buscar(":");
 			break;
 		}
 		else if (c!=EOF)
 		{
 			sprintf(msg,"%c no esperado",c);
+			token *tok = malloc(sizeof(token));
+			tok->compLex = UNKNOW;
+			tok->column = numColumna;
+			tok->line = numLinea;
+			addTokenToQueue(listt, *tok);
 			error(msg);
 		}
 	}
@@ -325,32 +347,24 @@ void sigLex()
 
 }
 
-int main(int argc,char* args[])
-{
-	// inicializar analizador lexico
+int initanlex(FILE *arch){
+    archivo = arch;
+    listt = malloc(sizeof(listatokens));
+    listt->first = NULL;
+    listt->last = NULL;
 
-	initTabla();
-	initTablaSimbolos();
+    while (t.compLex!=EOF){
+	sigLex();
+	addTokenToQueue(listt, t);
+	//printf("%s ", numToCompLex(t.compLex));
+	//printf("Lin %d: %s -> %d\n",numLinea,t.pe->lexema,t.compLex);
+    }
+    //printListTokens();
+    return lexerror;
+}
 
-	if(argc > 1)
-	{
-		if (!(archivo=fopen(args[1],"rt")))
-		{
-			printf("Archivo no encontrado.\n");
-			exit(1);
-		}
-		while (t.compLex!=EOF){
-			sigLex();
-			printf("%s ", numToCompLex(t.compLex));
-			//printf("Lin %d: %s -> %d\n",numLinea,t.pe->lexema,t.compLex);
-		}
-		fclose(archivo);
-	}else{
-		printf("Debe pasar como parametro el path al archivo fuente.\n");
-		exit(1);
-	}
-
-	return 0;
+listatokens *getListTokens(){
+	return listt;
 }
 
 char* numToCompLex(int num){
@@ -378,6 +392,17 @@ char* numToCompLex(int num){
          return "PR_FALSE";
         case 266:
          return "PR_NULL";
+        case 267:
+         return "UNKNOW";
+
     }
     return NULL;
+}
+
+int chlistCompare(char chlist[], const char string[]){
+	if(strlen(chlist) != strlen(string)) return 0;
+	for(int i = 0; i < strlen(chlist); i++){
+		if(chlist[i] != string[i]) return 0;
+	}
+	return 1;
 }
